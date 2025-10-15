@@ -14,6 +14,15 @@ export default function DropdownTanggal({
 }) {
   const [open, setOpen] = useState(false);
 
+  const formatTanggal = (tgl: string) => {
+    const date = new Date(tgl);
+    return new Intl.DateTimeFormat("id-ID", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }).format(date);
+  };
+
   return (
     <div className="relative w-64">
       <button
@@ -21,7 +30,9 @@ export default function DropdownTanggal({
         className="w-full border-2 border-gray-200 text-gray-700 rounded-xl px-4 py-3 text-base font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all cursor-pointer bg-white hover:border-blue-300 flex justify-between items-center"
       >
         <span>
-          {selectedTanggal ? selectedTanggal : "Pilih periode tanggal"}
+          {selectedTanggal
+            ? formatTanggal(selectedTanggal)
+            : "Pilih periode tanggal"}
         </span>
         <span
           className={`transition-transform duration-300 ${
@@ -45,7 +56,7 @@ export default function DropdownTanggal({
                 setOpen(false);
               }}
             >
-              {tanggal}
+              {formatTanggal(tanggal)}
             </li>
           ))}
         </ul>

@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import DropdownTanggal from "../components/DropdownTanggal";
 import CardStatsWithHeader from "../components/CardStatsWithHeader";
-import DashboardCharts from "../components/DashboardCharts";
 
 export default function Dashboard() {
   const [selectedTanggal, setSelectedTanggal] = useState<string>("");
@@ -31,14 +30,11 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    if (selectedTanggal) {
-      fetchDataByTanggal(selectedTanggal);
-    } else {
-      setCurrent(null);
-    }
+    if (selectedTanggal) fetchDataByTanggal(selectedTanggal);
   }, [selectedTanggal]);
 
   const fetchTanggalList = async () => {
+    setLoading(true);
     const { data, error } = await supabase
       .from("realisasi_mingguan")
       .select("tanggal")
@@ -50,11 +46,12 @@ export default function Dashboard() {
       return;
     }
 
-    if (data) {
+    if (data && data.length > 0) {
       const list = data.map((item) => item.tanggal);
       setTanggalList(list);
-      setLoading(false);
+      setSelectedTanggal(list[0]);
     }
+    setLoading(false);
   };
 
   const fetchDataByTanggal = async (tanggal: string) => {
@@ -82,11 +79,16 @@ export default function Dashboard() {
       maximumFractionDigits: 0,
     }).format(value);
 
+  const getColor = (value: number | string) => {
+    const num = typeof value === "string" ? parseFloat(value) : value;
+    if (isNaN(num)) return "text-gray-700";
+    return num < 50 ? "text-amber-700" : "text-emerald-700";
+  };
+
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
       <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
 
-      {/* Konten utama menyesuaikan lebar sidebar */}
       <div
         className={`flex-1 p-8 space-y-8 transition-all duration-300 ${
           isSidebarOpen ? "ml-72" : "ml-20"
@@ -94,7 +96,7 @@ export default function Dashboard() {
       >
         <Topbar />
 
-        {/* Header Section */}
+        {/* Header */}
         <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
           <div className="flex items-center justify-between mb-6">
             <div>
@@ -111,55 +113,45 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Date Selector */}
           <div className="relative">
             <Calendar
               className="absolute left-4 top-1/2 transform -translate-y-1/2 text-blue-500"
               size={20}
             />
-            <DropdownTanggal
-              tanggalList={tanggalList}
-              selectedTanggal={selectedTanggal}
-              setSelectedTanggal={setSelectedTanggal}
-            />
+            {tanggalList.length > 0 ? (
+              <DropdownTanggal
+                tanggalList={tanggalList}
+                selectedTanggal={selectedTanggal}
+                setSelectedTanggal={setSelectedTanggal}
+              />
+            ) : (
+              <div className="text-center text-gray-500 py-4">
+                Belum ada data realisasi di database
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Content Section */}
         {loading ? (
-          <div className="flex justify-center items-center h-64 bg-white rounded-2xl shadow-lg">
-            <div className="text-center">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent mb-4"></div>
-              <p className="text-gray-600 font-medium">Memuat data...</p>
-            </div>
-          </div>
-        ) : !selectedTanggal ? (
-          <div className="flex flex-col justify-center items-center h-64 bg-white rounded-2xl shadow-lg border-2 border-dashed border-gray-300">
-            <div className="bg-blue-100 rounded-full p-4 mb-4">
-              <Calendar size={48} className="text-blue-500" />
-            </div>
-            <p className="text-lg font-semibold text-gray-800 mb-2">
-              Pilih Periode Tanggal
-            </p>
-            <p className="text-sm text-gray-600">
-              Silakan pilih tanggal untuk melihat data realisasi anggaran
-            </p>
+          <div className="flex flex-col justify-center items-center h-64 space-y-4">
+            <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-gray-600 font-medium text-sm">Memuat data...</p>
           </div>
         ) : !current ? (
-          <div className="flex flex-col justify-center items-center h-64 bg-white rounded-2xl shadow-lg border-2 border-yellow-200">
+          <div className="flex flex-col justify-center items-center h-64 border-2 border-dashed border-gray-300 rounded-2xl">
             <div className="bg-yellow-100 rounded-full p-4 mb-4">
               <AlertCircle size={48} className="text-yellow-600" />
             </div>
-            <p className="text-lg font-semibold text-gray-800 mb-2">
-              Data Tidak Tersedia
+            <p className="text-lg font-semibold text-gray-700 mb-2">
+              Tidak ada data untuk ditampilkan
             </p>
-            <p className="text-sm text-gray-600">
-              Tidak ada data untuk tanggal {selectedTanggal}
+            <p className="text-sm text-gray-500">
+              Silakan tambahkan data realisasi di database
             </p>
           </div>
         ) : (
-          <div className="space-y-6">
-            {/* Stats Grid */}
+          <>
+            {/* Card Stats */}
             <div className="text-gray-800 bg-white px-8 py-12 rounded-2xl shadow-lg border border-gray-100">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
                 <CardStat
@@ -197,197 +189,206 @@ export default function Dashboard() {
                   icon={<TrendingUp size={20} />}
                 />
               </div>
-              {/* Charts Section */}
-              <DashboardCharts current={current} formatRupiah={formatRupiah} />
             </div>
 
-            {/* Realisasi Belanja Section */}
+            {/* Belanja Section */}
             <div className="flex justify-center">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-full w-full">
-                <CardStatsWithHeader
-                  title="Belanja Pegawai"
-                  value={formatRupiah(current.realisasi_belanja_pegawai)}
-                  pagu={formatRupiah(current.pagu_anggaran_belanja_pegawai)}
-                  percentage={current.realisasi_persentase_belanja_pegawai}
-                  icon={<Users size={24} />}
-                  color="flex flex-col justify-between bg-gradient-to-br from-sky-600 to-blue-700 text-white"
-                />
-
-                <CardStatsWithHeader
-                  title="Belanja Barang"
-                  value={formatRupiah(current.realisasi_belanja_barang)}
-                  pagu={formatRupiah(current.pagu_anggaran_belanja_barang)}
-                  percentage={current.realisasi_persentase_belanja_barang}
-                  color="bg-gradient-to-br from-emerald-600 to-green-700 text-white"
-                  icon={<Package size={24} />}
-                />
-                <CardStatsWithHeader
-                  title="Belanja Modal"
-                  value={formatRupiah(current.realisasi_belanja_modal)}
-                  pagu={formatRupiah(current.pagu_anggaran_belanja_modal)}
-                  percentage={current.realisasi_persentase_belanja_modal}
-                  color="bg-gradient-to-br from-orange-600 to-amber-700 text-white"
-                  icon={<Building2 size={24} />}
-                />
+                {[
+                  {
+                    label: "Belanja Pegawai",
+                    pagu: current.pagu_anggaran_belanja_pegawai,
+                    paguPercent:
+                      current.pagu_anggaran_persentase_belanja_pegawai,
+                    realisasi: current.realisasi_belanja_pegawai,
+                    realisasiPercent:
+                      current.realisasi_persentase_belanja_pegawai,
+                    target: current.target_belanja_pegawai,
+                    targetPercent: current.target_persentase_belanja_pegawai,
+                    sisa: current.sisa_pagu_belanja_pegawai,
+                    sisaPercent: current.sisa_pagu_persentase_belanja_pegawai,
+                    icon: <Users size={24} />,
+                    color:
+                      "flex flex-col justify-between bg-gradient-to-br from-sky-600 to-blue-700 text-white",
+                  },
+                  {
+                    label: "Belanja Barang",
+                    pagu: current.pagu_anggaran_belanja_barang,
+                    paguPercent:
+                      current.pagu_anggaran_persentase_belanja_barang,
+                    realisasi: current.realisasi_belanja_barang,
+                    realisasiPercent:
+                      current.realisasi_persentase_belanja_barang,
+                    target: current.target_belanja_barang,
+                    targetPercent: current.target_persentase_belanja_barang,
+                    sisa: current.sisa_pagu_belanja_barang,
+                    sisaPercent: current.sisa_pagu_persentase_belanja_barang,
+                    icon: <Package size={24} />,
+                    color:
+                      "bg-gradient-to-br from-emerald-600 to-green-700 text-white",
+                  },
+                  {
+                    label: "Belanja Modal",
+                    pagu: current.pagu_anggaran_belanja_modal,
+                    paguPercent: current.pagu_anggaran_persentase_belanja_modal,
+                    realisasi: current.realisasi_belanja_modal,
+                    realisasiPercent:
+                      current.realisasi_persentase_belanja_modal,
+                    target: current.target_belanja_modal,
+                    targetPercent: current.target_persentase_belanja_modal,
+                    sisa: current.sisa_pagu_belanja_modal,
+                    sisaPercent: current.sisa_pagu_persentase_belanja_modal,
+                    icon: <Building2 size={24} />,
+                    color:
+                      "bg-gradient-to-br from-orange-600 to-amber-700 text-white",
+                  },
+                ].map((item, idx) => (
+                  <CardStatsWithHeader
+                    key={idx}
+                    title={item.label}
+                    value={formatRupiah(item.realisasi)}
+                    pagu={formatRupiah(item.pagu)}
+                    percentage={item.realisasiPercent}
+                    icon={item.icon}
+                    color={item.color}
+                  />
+                ))}
               </div>
             </div>
+
+            {/* Table */}
             <div className="overflow-x-auto rounded-xl shadow-sm">
               <table className="min-w-[1200px] w-full text-sm text-center border-collapse text-gray-700">
                 <thead className="bg-gray-100 uppercase text-md">
                   <tr className="text-center text-gray-600 font-semibold px-3 py-2">
-                    <th className="px-3 py-2 bg-sky-400 ">Pagu</th>
-                    <th className="px-3 py-2 bg-sky-400 ">Jenis Belanja</th>
-                    <th className="px-3 py-2 bg-sky-400 ">Realisasi</th>
-                    <th className="px-3 py-2 bg-sky-400 ">Target</th>
-                    <th className="px-3 py-2 bg-sky-400 ">Sisa Saldo</th>
+                    <th className="px-3 py-2 bg-sky-400">Jenis Belanja</th>
+                    <th className="px-3 py-2 bg-sky-400">Pagu</th>
+                    <th className="px-3 py-2 bg-sky-400">Realisasi</th>
+                    <th className="px-3 py-2 bg-sky-400">Target</th>
+                    <th className="px-3 py-2 bg-sky-400">Sisa Saldo</th>
                   </tr>
                 </thead>
 
                 <tbody className="uppercase">
-                  {/* Belanja Pegawai */}
-                  <tr>
-                    <td className="text-xs px-3 py-2 bg-amber-200 font-semibold align-middle">
-                      Belanja Pegawai
-                    </td>
-                    <td className="px-3 py-2 ">
-                      <div className="flex flex-col items-center">
-                        <span className="font-bold">
-                          {formatRupiah(current.pagu_anggaran_belanja_pegawai)}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {current.pagu_anggaran_persentase_belanja_pegawai} %
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 ">
-                      <div className="flex flex-col items-center">
-                        <span className="font-bold">
-                          {formatRupiah(current.realisasi_belanja_pegawai)}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {current.realisasi_persentase_belanja_pegawai} %
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 ">
-                      <div className="flex flex-col items-center">
-                        <span className="font-bold">
-                          {formatRupiah(current.target_belanja_pegawai)}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {current.target_persentase_belanja_pegawai} %
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 ">
-                      <div className="flex flex-col items-center">
-                        <span className="font-bold">
-                          {formatRupiah(current.sisa_pagu_belanja_pegawai)}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {current.sisa_pagu_persentase_belanja_pegawai} %
-                        </span>
-                      </div>
-                    </td>
-                  </tr>
-
-                  {/* Belanja Barang */}
-                  <tr>
-                    <td className="text-xs px-3 py-2 bg-amber-200 font-semibold align-middle">
-                      Belanja Barang
-                    </td>
-                    <td className="px-3 py-2 ">
-                      <div className="flex flex-col items-center">
-                        <span className="font-bold">
-                          {formatRupiah(current.pagu_anggaran_belanja_barang)}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {current.pagu_anggaran_persentase_belanja_barang} %
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="flex flex-col items-center">
-                        <span className="font-bold">
-                          {formatRupiah(current.realisasi_belanja_barang)}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {current.realisasi_persentase_belanja_barang} %
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="flex flex-col items-center">
-                        <span className="font-bold">
-                          {formatRupiah(current.target_belanja_barang)}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {current.target_persentase_belanja_barang} %
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="flex flex-col items-center">
-                        <span className="font-bold">
-                          {formatRupiah(current.sisa_pagu_belanja_barang)}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {current.sisa_pagu_persentase_belanja_barang} %
-                        </span>
-                      </div>
-                    </td>
-                  </tr>
-
-                  {/* Belanja Modal */}
-                  <tr>
-                    <td className="text-xs px-3 py-2 bg-amber-200 font-semibold align-middle">
-                      Belanja Modal
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="flex flex-col items-center">
-                        <span className="font-bold">
-                          {formatRupiah(current.pagu_anggaran_belanja_modal)}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {current.pagu_anggaran_persentase_belanja_modal} %
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="flex flex-col items-center">
-                        <span className="font-bold">
-                          {formatRupiah(current.realisasi_belanja_modal)}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {current.realisasi_persentase_belanja_modal} %
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="flex flex-col items-center">
-                        <span className="font-bold">
-                          {formatRupiah(current.target_belanja_modal)}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {current.target_persentase_belanja_modal} %
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="flex flex-col items-center">
-                        <span className="font-bold">
-                          {formatRupiah(current.sisa_pagu_belanja_modal)}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {current.sisa_pagu_persentase_belanja_modal} %
-                        </span>
-                      </div>
-                    </td>
-                  </tr>
+                  {[
+                    {
+                      label: "Belanja Pegawai",
+                      pagu: current.pagu_anggaran_belanja_pegawai,
+                      paguPercent:
+                        current.pagu_anggaran_persentase_belanja_pegawai,
+                      realisasi: current.realisasi_belanja_pegawai,
+                      realisasiPercent:
+                        current.realisasi_persentase_belanja_pegawai,
+                      target: current.target_belanja_pegawai,
+                      targetPercent: current.target_persentase_belanja_pegawai,
+                      sisa: current.sisa_pagu_belanja_pegawai,
+                      sisaPercent: current.sisa_pagu_persentase_belanja_pegawai,
+                    },
+                    {
+                      label: "Belanja Barang",
+                      pagu: current.pagu_anggaran_belanja_barang,
+                      paguPercent:
+                        current.pagu_anggaran_persentase_belanja_barang,
+                      realisasi: current.realisasi_belanja_barang,
+                      realisasiPercent:
+                        current.realisasi_persentase_belanja_barang,
+                      target: current.target_belanja_barang,
+                      targetPercent: current.target_persentase_belanja_barang,
+                      sisa: current.sisa_pagu_belanja_barang,
+                      sisaPercent: current.sisa_pagu_persentase_belanja_barang,
+                    },
+                    {
+                      label: "Belanja Modal",
+                      pagu: current.pagu_anggaran_belanja_modal,
+                      paguPercent:
+                        current.pagu_anggaran_persentase_belanja_modal,
+                      realisasi: current.realisasi_belanja_modal,
+                      realisasiPercent:
+                        current.realisasi_persentase_belanja_modal,
+                      target: current.target_belanja_modal,
+                      targetPercent: current.target_persentase_belanja_modal,
+                      sisa: current.sisa_pagu_belanja_modal,
+                      sisaPercent: current.sisa_pagu_persentase_belanja_modal,
+                    },
+                  ].map((item, idx) => (
+                    <tr key={idx}>
+                      <td className="text-xs px-3 py-2 bg-amber-200 font-semibold align-middle">
+                        {item.label}
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex flex-col items-center">
+                          <span
+                            className={`font-bold ${getColor(
+                              item.paguPercent
+                            )}`}
+                          >
+                            {formatRupiah(item.pagu)}
+                          </span>
+                          <span
+                            className={`text-xs ${getColor(item.paguPercent)}`}
+                          >
+                            {item.paguPercent} %
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex flex-col items-center">
+                          <span
+                            className={`font-bold ${getColor(
+                              item.realisasiPercent
+                            )}`}
+                          >
+                            {formatRupiah(item.realisasi)}
+                          </span>
+                          <span
+                            className={`text-xs ${getColor(
+                              item.realisasiPercent
+                            )}`}
+                          >
+                            {item.realisasiPercent} %
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex flex-col items-center">
+                          <span
+                            className={`font-bold ${getColor(
+                              item.targetPercent
+                            )}`}
+                          >
+                            {formatRupiah(item.target)}
+                          </span>
+                          <span
+                            className={`text-xs ${getColor(
+                              item.targetPercent
+                            )}`}
+                          >
+                            {item.targetPercent} %
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex flex-col items-center">
+                          <span
+                            className={`font-bold ${getColor(
+                              item.sisaPercent
+                            )}`}
+                          >
+                            {formatRupiah(item.sisa)}
+                          </span>
+                          <span
+                            className={`text-xs ${getColor(item.sisaPercent)}`}
+                          >
+                            {item.sisaPercent} %
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
-          </div>
+          </>
         )}
       </div>
     </div>

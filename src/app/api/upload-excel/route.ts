@@ -46,19 +46,34 @@ export async function POST(request: NextRequest) {
     );
 
     const parseDate = (value: ExcelCell): string => {
-      if (!value) return new Date().toISOString().split("T")[0];
+      if (!value) return "1999-01-01";
+
+      // Kalau dari Excel format serial number
       if (typeof value === "number") {
-        const base = new Date(1899, 11, 30);
-        const date = new Date(base.getTime() + value * 86400000);
-        return date.toISOString().split("T")[0];
+        const excelEpoch = new Date((value - 25569) * 86400 * 1000);
+        if (isNaN(excelEpoch.getTime())) return "1999-01-01";
+        return excelEpoch.toISOString().split("T")[0];
       }
+
       if (typeof value === "string") {
-        const parsed = new Date(value);
-        return isNaN(parsed.getTime())
-          ? new Date().toISOString().split("T")[0]
-          : parsed.toISOString().split("T")[0];
+        const trimmed = value.trim();
+
+        // Format YYYY-MM-DD
+        if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+
+        // Format DD/MM/YYYY
+        if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(trimmed)) {
+          const [d, m, y] = trimmed.split("/");
+          return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+        }
+
+        // Cek parse Date
+        const parsed = new Date(trimmed);
+        if (!isNaN(parsed.getTime())) return parsed.toISOString().split("T")[0];
       }
-      return new Date().toISOString().split("T")[0];
+
+      // Default kalau gagal parse
+      return "1999-01-01";
     };
 
     const toInt = (v: ExcelCell): number => {
@@ -77,45 +92,52 @@ export async function POST(request: NextRequest) {
       return isNaN(parsed) ? 0 : parseFloat(parsed.toFixed(2));
     };
 
-    const mapped: RealisasiMingguan[] = filteredData.map((row) => ({
-      id: uuidv4(),
-      tanggal: parseDate(row[0]),
-      pagu_anggaran_pagu: toInt(row[1]),
-      pagu_anggaran_persentase_pagu: toFloat(row[2]),
-      pagu_anggaran_realisasi: toInt(row[3]),
-      pagu_anggaran_persentase_realisasi: toFloat(row[4]),
-      pagu_anggaran_sisa: toInt(row[5]),
-      pagu_anggaran_persentase_sisa: toFloat(row[6]),
-      pagu_anggaran_belanja_pegawai: toInt(row[7]),
-      pagu_anggaran_persentase_belanja_pegawai: toFloat(row[8]),
-      pagu_anggaran_belanja_barang: toInt(row[9]),
-      pagu_anggaran_persentase_belanja_barang: toFloat(row[10]),
-      pagu_anggaran_belanja_modal: toInt(row[11]),
-      pagu_anggaran_persentase_belanja_modal: toFloat(row[12]),
-      realisasi_belanja_pegawai: toInt(row[13]),
-      realisasi_persentase_belanja_pegawai: toFloat(row[14]),
-      realisasi_belanja_barang: toInt(row[15]),
-      realisasi_persentase_belanja_barang: toFloat(row[16]),
-      realisasi_belanja_modal: toInt(row[17]),
-      realisasi_persentase_belanja_modal: toFloat(row[18]),
-      target_pagu: toInt(row[19]),
-      target_persentase_pagu: toFloat(row[20]),
-      target_belanja_pegawai: toInt(row[21]),
-      target_persentase_belanja_pegawai: toFloat(row[22]),
-      target_belanja_barang: toInt(row[23]),
-      target_persentase_belanja_barang: toFloat(row[24]),
-      target_belanja_modal: toInt(row[25]),
-      target_persentase_belanja_modal: toFloat(row[26]),
-      sisa_pagu_sisa_pagu: toInt(row[27]),
-      sisa_pagu_persentase_sisa_pagu: toFloat(row[28]),
-      sisa_pagu_belanja_pegawai: toInt(row[29]),
-      sisa_pagu_persentase_belanja_pegawai: toFloat(row[30]),
-      sisa_pagu_belanja_barang: toInt(row[31]),
-      sisa_pagu_persentase_belanja_barang: toFloat(row[32]),
-      sisa_pagu_belanja_modal: toInt(row[33]),
-      sisa_pagu_persentase_belanja_modal: toFloat(row[34]),
-      kenaikan: toFloat(row[35]),
-    }));
+    const mapped: RealisasiMingguan[] = filteredData
+      .filter(
+        (row) =>
+          row[0] !== null &&
+          row[0] !== undefined &&
+          String(row[0]).trim() !== ""
+      )
+      .map((row) => ({
+        id: uuidv4(),
+        tanggal: parseDate(row[0])!,
+        pagu_anggaran_pagu: toInt(row[1]),
+        pagu_anggaran_persentase_pagu: toFloat(row[2]),
+        pagu_anggaran_realisasi: toInt(row[3]),
+        pagu_anggaran_persentase_realisasi: toFloat(row[4]),
+        pagu_anggaran_sisa: toInt(row[5]),
+        pagu_anggaran_persentase_sisa: toFloat(row[6]),
+        pagu_anggaran_belanja_pegawai: toInt(row[7]),
+        pagu_anggaran_persentase_belanja_pegawai: toFloat(row[8]),
+        pagu_anggaran_belanja_barang: toInt(row[9]),
+        pagu_anggaran_persentase_belanja_barang: toFloat(row[10]),
+        pagu_anggaran_belanja_modal: toInt(row[11]),
+        pagu_anggaran_persentase_belanja_modal: toFloat(row[12]),
+        realisasi_belanja_pegawai: toInt(row[13]),
+        realisasi_persentase_belanja_pegawai: toFloat(row[14]),
+        realisasi_belanja_barang: toInt(row[15]),
+        realisasi_persentase_belanja_barang: toFloat(row[16]),
+        realisasi_belanja_modal: toInt(row[17]),
+        realisasi_persentase_belanja_modal: toFloat(row[18]),
+        target_pagu: toInt(row[19]),
+        target_persentase_pagu: toFloat(row[20]),
+        target_belanja_pegawai: toInt(row[21]),
+        target_persentase_belanja_pegawai: toFloat(row[22]),
+        target_belanja_barang: toInt(row[23]),
+        target_persentase_belanja_barang: toFloat(row[24]),
+        target_belanja_modal: toInt(row[25]),
+        target_persentase_belanja_modal: toFloat(row[26]),
+        sisa_pagu_sisa_pagu: toInt(row[27]),
+        sisa_pagu_persentase_sisa_pagu: toFloat(row[28]),
+        sisa_pagu_belanja_pegawai: toInt(row[29]),
+        sisa_pagu_persentase_belanja_pegawai: toFloat(row[30]),
+        sisa_pagu_belanja_barang: toInt(row[31]),
+        sisa_pagu_persentase_belanja_barang: toFloat(row[32]),
+        sisa_pagu_belanja_modal: toInt(row[33]),
+        sisa_pagu_persentase_belanja_modal: toFloat(row[34]),
+        kenaikan: toFloat(row[35]),
+      }));
 
     const { data, error } = await supabase
       .from("realisasi_mingguan")
